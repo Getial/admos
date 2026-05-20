@@ -2,12 +2,11 @@ from datetime import date
 from decimal import Decimal
 
 from django.utils.dateparse import parse_date
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.orders.models import WorkOrder, SparePart, StatusHistory
-from apps.orders.permissions import IsTallerChief
+from apps.orders.permissions import IsTallerChief, IsTecnicoOrChief
 from apps.users.models import User
 
 
@@ -27,7 +26,7 @@ class ProductivityView(APIView):
     MO por técnico. Fecha de cierre = cuando OT llega a LISTO_PARA_ENTREGAR.
     TECNICO solo ve sus propios datos; JEFE ve todos.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsTecnicoOrChief]
 
     def get(self, request):
         start, end = _parse_range(request)

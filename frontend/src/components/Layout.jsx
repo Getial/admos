@@ -8,8 +8,8 @@ const NAV_ITEMS = [
   { to: "/orders", label: "Órdenes" },
   { to: "/clients", label: "Clientes" },
   { to: "/equipment", label: "Equipos" },
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/users", label: "Usuarios", role: "JEFE_TALLER" },
+  { to: "/dashboard", label: "Dashboard", roles: ["TECNICO", "JEFE_TALLER"] },
+  { to: "/users", label: "Usuarios", roles: ["JEFE_TALLER"] },
 ];
 
 export default function Layout({ children }) {
@@ -19,7 +19,7 @@ export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const visibleItems = NAV_ITEMS.filter(
-    (item) => !item.role || item.role === user?.role,
+    (item) => !item.roles || item.roles.includes(user?.role),
   );
 
   function handleLogout() {

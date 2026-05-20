@@ -24,6 +24,13 @@ function ChiefRoute({ children }) {
   return <Layout>{children}</Layout>
 }
 
+function TecnicoRoute({ children }) {
+  const { user } = useAuth()
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role === 'RECEPCIONISTA') return <Navigate to="/orders" replace />
+  return <Layout>{children}</Layout>
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -37,7 +44,7 @@ function App() {
             <Route path="/clients" element={<PrivateRoute><ClientsPage /></PrivateRoute>} />
             <Route path="/equipment" element={<PrivateRoute><EquipmentPage /></PrivateRoute>} />
             <Route path="/users"      element={<ChiefRoute><UsersPage /></ChiefRoute>} />
-            <Route path="/dashboard"  element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
+            <Route path="/dashboard"  element={<TecnicoRoute><DashboardPage /></TecnicoRoute>} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

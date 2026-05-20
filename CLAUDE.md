@@ -55,8 +55,10 @@ Admos/
 ## Plan de fases
 
 - **Fase 1:** Base operativa — auth, clientes, equipos, OTs, estados ✓ COMPLETADA
-- **Fase 2:** Operaciones — repuestos, pagos/abonos, contacto WhatsApp, diagnóstico con fotos (Cloudinary) (EN CURSO)
-- **Fase 3:** Productividad — dashboards, bonos, métricas
+- **Fase 2:** Operaciones — repuestos, pagos/abonos, contacto WhatsApp, diagnóstico con fotos (Cloudinary) ✓ COMPLETADA
+- **Fase 3:** Productividad — dashboards, bonos, métricas (EN CURSO)
+  - Dashboard implementado: productividad técnicos, frecuencia de equipos, ingresos por tipo/garantía, tiempos de reparación, estacionalidad
+  - Pendiente: validación con datos reales, cálculo y visualización de bonos técnicos
 - **Fase 4:** Pulido — PWA, notificaciones, búsqueda avanzada
 
 ## Contexto de dominio
