@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.users.models import User
-from .models import WorkOrder, StatusHistory, SparePart, Payment, DiagnosticPhoto
+from .models import WorkOrder, StatusHistory, SparePart, Payment, DiagnosticPhoto, BonusTier
 from .permissions import IsTallerChief, IsRecepcionistaOrChief, IsTecnicoOrChief
 from .serializers import (
     WorkOrderListSerializer,
@@ -20,6 +20,7 @@ from .serializers import (
     SparePartSerializer,
     PaymentSerializer,
     DiagnosticPhotoSerializer,
+    BonusTierSerializer,
 )
 
 
@@ -252,3 +253,11 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         cloudinary.uploader.destroy(photo.public_id)
         photo.delete()
         return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+
+
+class BonusTierViewSet(viewsets.ModelViewSet):
+    queryset = BonusTier.objects.all()
+    serializer_class = BonusTierSerializer
+
+    def get_permissions(self):
+        return [IsTallerChief()]

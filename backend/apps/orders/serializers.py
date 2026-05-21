@@ -1,6 +1,12 @@
 from rest_framework import serializers
 from apps.users.models import User
-from .models import WorkOrder, StatusHistory, SparePart, Payment, DiagnosticPhoto
+from .models import WorkOrder, StatusHistory, SparePart, Payment, DiagnosticPhoto, BonusTier
+
+
+class BonusTierSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BonusTier
+        fields = ['id', 'threshold', 'bonus_amount', 'label']
 
 
 class SparePartSerializer(serializers.ModelSerializer):

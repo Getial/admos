@@ -5,7 +5,7 @@ from django.utils.dateparse import parse_date
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.orders.models import WorkOrder, SparePart, StatusHistory
+from apps.orders.models import WorkOrder, SparePart, StatusHistory, BonusTier
 from apps.orders.permissions import IsTallerChief, IsTecnicoOrChief
 from apps.users.models import User
 
@@ -279,4 +279,85 @@ class RepairTimesView(APIView):
                 key=lambda x: x['avg_days'] or 0,
                 reverse=True,
             ),
+        })
+
+
+class BonusView(APIView):
+    permission_classes = [IsTallerChief]
+
+    def get(self, request):
+        start, end = _parse_range(request)
+
+        transitions = (
+            StatusHistory.objects
+            .filter(
+                to_status=WorkOrder.Status.LISTO_PARA_ENTREGAR,
+                changed_at__date__gte=start,
+                changed_at__date__lte=end,
+                work_order__repair_technician__isnull=False,
+            )
+            .select_related(
+                'work_order__repair_technician',
+                'work_order__equipment__brand',
+                'work_order__client',
+            )
+        )
+
+        tiers = list(BonusTier.objects.order_by('threshold'))
+
+        by_tech = {}
+        for sh in transitions:
+            wo = sh.work_order
+            tech = wo.repair_technician
+            labor = (
+                (wo.labor_cost or Decimal('0'))
+                if wo.service_type == WorkOrder.ServiceType.COBRO
+                else (wo.client_labor_cost or Decimal('0'))
+            )
+
+            if tech.id not in by_tech:
+                by_tech[tech.id] = {
+                    'technician_id': tech.id,
+                    'name': _name(tech),
+                    'total_labor': Decimal('0'),
+                    'ots': [],
+                }
+
+            by_tech[tech.id]['total_labor'] += labor
+            by_tech[tech.id]['ots'].append({
+                'ot_number': wo.display_number,
+                'equipment': f'{wo.equipment.brand.name if wo.equipment.brand else ""} {wo.equipment.product_type}'.strip(),
+                'client': wo.client.name,
+                'labor': labor,
+                'date': str(sh.changed_at.date()),
+            })
+
+        def find_tier(total):
+            applicable = None
+            for tier in tiers:
+                if total >= tier.threshold:
+                    applicable = tier
+            return applicable
+
+        results = []
+        for tech_data in sorted(by_tech.values(), key=lambda x: x['total_labor'], reverse=True):
+            tier = find_tier(tech_data['total_labor'])
+            results.append({
+                **tech_data,
+                'applicable_tier': {
+                    'id': tier.id,
+                    'threshold': tier.threshold,
+                    'bonus_amount': tier.bonus_amount,
+                    'label': tier.label,
+                } if tier else None,
+                'bonus_amount': tier.bonus_amount if tier else Decimal('0'),
+            })
+
+        return Response({
+            'period': {'start': str(start), 'end': str(end)},
+            'tiers': [
+                {'id': t.id, 'threshold': t.threshold, 'bonus_amount': t.bonus_amount, 'label': t.label}
+                for t in tiers
+            ],
+            'results': results,
         })

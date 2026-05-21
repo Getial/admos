@@ -177,6 +177,18 @@ class DiagnosticPhoto(models.Model):
         ordering = ['created_at']
 
 
+class BonusTier(models.Model):
+    threshold    = models.DecimalField(max_digits=12, decimal_places=2)
+    bonus_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    label        = models.CharField(max_length=100, blank=True)
+
+    class Meta:
+        ordering = ['threshold']
+
+    def __str__(self):
+        return f'Meta ${self.threshold} → bono ${self.bonus_amount}'
+
+
 class StatusHistory(models.Model):
     work_order   = models.ForeignKey(WorkOrder, on_delete=models.CASCADE, related_name='status_history')
     from_status  = models.CharField(max_length=25, blank=True)
