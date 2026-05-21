@@ -17,6 +17,7 @@ from .serializers import (
     WorkOrderListSerializer,
     WorkOrderDetailSerializer,
     StatusTransitionSerializer,
+    CoreUpdateSerializer,
     SparePartSerializer,
     PaymentSerializer,
     DiagnosticPhotoSerializer,
@@ -155,6 +156,14 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         work_order.status = new_status
         work_order.save()
 
+        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['patch'], url_path='update-core')
+    def update_core(self, request, pk=None):
+        work_order = self.get_object()
+        serializer = CoreUpdateSerializer(work_order, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
 
     # --- Repuestos ---

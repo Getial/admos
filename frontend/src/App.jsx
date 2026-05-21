@@ -5,6 +5,7 @@ import LoginPage from './features/auth/LoginPage'
 import Layout from './components/Layout'
 import OrdersPage from './features/orders/OrdersPage'
 import OrderDetail from './features/orders/OrderDetail'
+import OrderPrint from './features/orders/OrderPrint'
 import ClientsPage from './features/clients/ClientsPage'
 import EquipmentPage from './features/equipment/EquipmentPage'
 import UsersPage from './features/users/UsersPage'
@@ -31,6 +32,11 @@ function TecnicoRoute({ children }) {
   return <Layout>{children}</Layout>
 }
 
+function PrintRoute({ children }) {
+  const { user } = useAuth()
+  return user ? children : <Navigate to="/login" replace />
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -41,6 +47,7 @@ function App() {
             <Route path="/" element={<Navigate to="/orders" replace />} />
             <Route path="/orders" element={<PrivateRoute><OrdersPage /></PrivateRoute>} />
             <Route path="/orders/:id" element={<PrivateRoute><OrderDetail /></PrivateRoute>} />
+            <Route path="/orders/:id/print" element={<PrintRoute><OrderPrint /></PrintRoute>} />
             <Route path="/clients" element={<PrivateRoute><ClientsPage /></PrivateRoute>} />
             <Route path="/equipment" element={<PrivateRoute><EquipmentPage /></PrivateRoute>} />
             <Route path="/users"      element={<ChiefRoute><UsersPage /></ChiefRoute>} />

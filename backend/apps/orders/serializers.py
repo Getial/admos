@@ -174,6 +174,16 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
         return work_order
 
 
+class CoreUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkOrder
+        fields = [
+            'client', 'equipment', 'serial_number',
+            'problem_description', 'received_condition',
+            'service_type', 'warranty_brand', 'brand_ot_number',
+        ]
+
+
 class StatusTransitionSerializer(serializers.Serializer):
     new_status            = serializers.ChoiceField(choices=WorkOrder.Status.choices)
     notes                 = serializers.CharField(required=False, allow_blank=True, default='')

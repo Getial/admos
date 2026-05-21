@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ordersApi } from "@/api/orders";
+import { useAuth } from "@/features/auth/AuthContext";
 import StatusBadge from "./StatusBadge";
 import TransitionDialog from "./TransitionDialog";
 import PhotoAnnotator from "./PhotoAnnotator";
+import EditOrderDialog from "./EditOrderDialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +29,7 @@ import {
   Download,
   Copy,
   Check,
+  Printer,
 } from "lucide-react";
 
 const CATEGORY_LABELS = {
@@ -158,7 +161,9 @@ export default function OrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [transitionOpen, setTransitionOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const {
     data: order,
@@ -367,15 +372,37 @@ export default function OrderDetail() {
           </div>
         </div>
 
-        {canTransition && (
+        <div className="flex gap-2 shrink-0 max-[500px]:w-full flex-wrap">
           <Button
-            onClick={() => setTransitionOpen(true)}
-            className="gap-2 shrink-0 max-[500px]:w-full"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/orders/${id}/print`)}
+            className="gap-1.5"
           >
-            <RefreshCw className="h-4 w-4" />
-            Cambiar estado
+            <Printer className="h-4 w-4" />
+            Imprimir
           </Button>
-        )}
+          {user?.role === "JEFE_TALLER" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditOpen(true)}
+              className="gap-1.5"
+            >
+              <Pencil className="h-4 w-4" />
+              Editar datos
+            </Button>
+          )}
+          {canTransition && (
+            <Button
+              onClick={() => setTransitionOpen(true)}
+              className="gap-2 max-[500px]:w-full"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Cambiar estado
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Body */}
@@ -1154,6 +1181,12 @@ export default function OrderDetail() {
           )}
         </div>
       </div>
+
+      <EditOrderDialog
+        order={order}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+      />
 
       <TransitionDialog
         open={transitionOpen}

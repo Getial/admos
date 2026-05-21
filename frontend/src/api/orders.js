@@ -27,4 +27,5 @@ export const ordersApi = {
     })
   },
   removePhoto: (id, photoId) => api.delete(`/orders/${id}/photos/${photoId}/`),
+  updateCore: (id, data) => api.patch(`/orders/${id}/update-core/`, data),
 }
