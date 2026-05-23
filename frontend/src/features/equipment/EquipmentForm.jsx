@@ -175,7 +175,7 @@ export default function EquipmentForm({
             <SelectTrigger id="eq-category">
               <SelectValue placeholder="Seleccionar…" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="min-w-[250px]">
               {CATEGORIES.map((g) => (
                 <SelectGroup key={g.group}>
                   <SelectLabel>{g.group}</SelectLabel>

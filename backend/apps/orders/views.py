@@ -1,10 +1,10 @@
 import cloudinary.uploader
 from decimal import Decimal
-from django.db.models import DecimalField, F, OuterRef, Subquery, Sum
+from django.db.models import DecimalField, F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import viewsets, filters, status
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated
@@ -26,8 +26,6 @@ from .serializers import (
 
 
 class WorkOrderViewSet(viewsets.ModelViewSet):
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['client__name', 'client__document_number', 'ot_number', 'serial_number']
 
     def get_permissions(self):
         # Ver OTs — todos los usuarios autenticados
@@ -82,6 +80,18 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             spare_parts_total_ann=Coalesce(Subquery(spare_parts_subq, output_field=_money), Decimal('0'), output_field=_money),
             payments_total_ann=Coalesce(Subquery(payments_subq, output_field=_money), Decimal('0'), output_field=_money),
         )
+
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            q = (
+                Q(client__name__icontains=search)
+                | Q(client__document_number__icontains=search)
+                | Q(serial_number__icontains=search)
+                | Q(brand_ot_number__icontains=search)
+            )
+            if search.isdigit():
+                q |= Q(ot_number=int(search))
+            qs = qs.filter(q)
 
         status_filter = self.request.query_params.get('status')
         service_type = self.request.query_params.get('service_type')

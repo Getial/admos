@@ -73,23 +73,24 @@ function EquipmentTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
           {isLoading ? '…' : `${equipment.length} equipo${equipment.length !== 1 ? 's' : ''}`}
         </p>
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 sm:flex-none">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Marca, modelo o serie..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 w-64"
+              className="pl-10 w-full sm:w-56"
             />
           </div>
-          <Button onClick={openCreate} className="gap-2">
+          <Button onClick={openCreate} className="gap-2 shrink-0">
             <Plus className="h-4 w-4" />
-            Nuevo equipo
+            <span className="hidden xs:inline">Nuevo equipo</span>
+            <span className="xs:hidden">Nuevo</span>
           </Button>
         </div>
       </div>
@@ -101,9 +102,9 @@ function EquipmentTab() {
               <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead className="font-semibold text-foreground">Marca / Modelo</TableHead>
                 <TableHead className="font-semibold text-foreground">Tipo</TableHead>
-                <TableHead className="font-semibold text-foreground">Categoría</TableHead>
-                <TableHead className="font-semibold text-foreground">Costo revisión</TableHead>
-                <TableHead className="font-semibold text-foreground">Mano de obra</TableHead>
+                <TableHead className="font-semibold text-foreground hidden sm:table-cell">Categoría</TableHead>
+                <TableHead className="font-semibold text-foreground hidden md:table-cell">Costo revisión</TableHead>
+                <TableHead className="font-semibold text-foreground hidden md:table-cell">Mano de obra</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -111,7 +112,7 @@ function EquipmentTab() {
               {isLoading ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((_, j) => (
+                    {Array.from({ length: 3 }).map((_, j) => (
                       <TableCell key={j}><div className="h-4 rounded bg-muted animate-pulse" /></TableCell>
                     ))}
                   </TableRow>
@@ -149,22 +150,22 @@ function EquipmentTab() {
                     <TableCell className="text-sm text-muted-foreground">
                       {item.product_type || <span className="text-muted-foreground/40">—</span>}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Badge variant="secondary" className="font-normal text-xs whitespace-nowrap">
                         {CATEGORY_LABELS[item.category] ?? item.category}
                       </Badge>
                     </TableCell>
-                    <TableCell className="tabular-nums">{formatCost(item.default_revision_cost)}</TableCell>
-                    <TableCell className="tabular-nums">{formatCost(item.default_labor_cost)}</TableCell>
+                    <TableCell className="tabular-nums hidden md:table-cell">{formatCost(item.default_revision_cost)}</TableCell>
+                    <TableCell className="tabular-nums hidden md:table-cell">{formatCost(item.default_labor_cost)}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => openEdit(item)}
-                        className="gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                       >
                         <Pencil className="h-3.5 w-3.5" />
-                        Editar
+                        <span className="hidden sm:inline">Editar</span>
                       </Button>
                     </TableCell>
                   </TableRow>
