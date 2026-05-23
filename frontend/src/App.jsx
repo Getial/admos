@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'sonner'
 import { AuthProvider, useAuth } from './features/auth/AuthContext'
 import LoginPage from './features/auth/LoginPage'
 import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
 import OrdersPage from './features/orders/OrdersPage'
 import OrderDetail from './features/orders/OrderDetail'
 import OrderPrint from './features/orders/OrderPrint'
@@ -41,17 +43,18 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <Toaster theme="dark" richColors position="top-right" />
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/" element={<Navigate to="/orders" replace />} />
-            <Route path="/orders" element={<PrivateRoute><OrdersPage /></PrivateRoute>} />
-            <Route path="/orders/:id" element={<PrivateRoute><OrderDetail /></PrivateRoute>} />
-            <Route path="/orders/:id/print" element={<PrintRoute><OrderPrint /></PrintRoute>} />
-            <Route path="/clients" element={<PrivateRoute><ClientsPage /></PrivateRoute>} />
-            <Route path="/equipment" element={<PrivateRoute><EquipmentPage /></PrivateRoute>} />
-            <Route path="/users"      element={<ChiefRoute><UsersPage /></ChiefRoute>} />
-            <Route path="/dashboard"  element={<TecnicoRoute><DashboardPage /></TecnicoRoute>} />
+            <Route path="/orders" element={<PrivateRoute><ErrorBoundary><OrdersPage /></ErrorBoundary></PrivateRoute>} />
+            <Route path="/orders/:id" element={<PrivateRoute><ErrorBoundary><OrderDetail /></ErrorBoundary></PrivateRoute>} />
+            <Route path="/orders/:id/print" element={<PrintRoute><ErrorBoundary><OrderPrint /></ErrorBoundary></PrintRoute>} />
+            <Route path="/clients" element={<PrivateRoute><ErrorBoundary><ClientsPage /></ErrorBoundary></PrivateRoute>} />
+            <Route path="/equipment" element={<PrivateRoute><ErrorBoundary><EquipmentPage /></ErrorBoundary></PrivateRoute>} />
+            <Route path="/users"      element={<ChiefRoute><ErrorBoundary><UsersPage /></ErrorBoundary></ChiefRoute>} />
+            <Route path="/dashboard"  element={<TecnicoRoute><ErrorBoundary><DashboardPage /></ErrorBoundary></TecnicoRoute>} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

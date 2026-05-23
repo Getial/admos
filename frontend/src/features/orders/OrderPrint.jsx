@@ -2,35 +2,8 @@ import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ordersApi } from "@/api/orders";
-
-const CATEGORY_LABELS = {
-  HERRAMIENTA_ELECTRICA_CABLE: "Herramienta eléctrica con cable",
-  HERRAMIENTA_ELECTRICA_INALAMBRIC: "Herramienta eléctrica inalámbrica",
-  HERRAMIENTA_NEUMATICA: "Herramienta neumática",
-  HERRAMIENTA_HIDRAULICA: "Herramienta hidráulica",
-  MOTOR_ELECTRICO: "Motor eléctrico",
-  MOTOR_GASOLINA: "Motor a gasolina",
-  MOTOR_DIESEL: "Motor diésel",
-  PLANTA_ELECTRICA_GASOLINA: "Planta eléctrica a gasolina",
-  PLANTA_ELECTRICA_DIESEL: "Planta eléctrica diésel",
-  SOLDADOR_INVERSOR: "Soldador inversor",
-  SOLDADOR_CONVENCIONAL: "Soldador convencional",
-  MOTOSOLDADOR: "Motosoldador",
-  CORTADOR_PLASMA: "Cortador de plasma",
-  OXICORTE: "Equipo de oxicorte",
-  AGROFORESTAL: "Agroforestal",
-  LINEA_BLANCA: "Línea blanca",
-};
-
-function formatDateShort(iso) {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "short" }).format(new Date(iso));
-}
-
-function formatCost(value) {
-  if (value == null || value === "" || Number(value) === 0) return null;
-  return `$${Number(value).toLocaleString("es-CO", { maximumFractionDigits: 0 })}`;
-}
+import { CATEGORY_LABELS } from "@/lib/constants";
+import { formatDateShort, formatCostOrNull as formatCost } from "@/lib/format";
 
 function Divider() {
   return <div style={{ borderTop: "1px dashed #000", margin: "6px 0" }} />;

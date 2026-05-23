@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Combobox } from '@/components/ui/combobox'
 import { AlertCircle } from 'lucide-react'
+import { getApiError } from '@/lib/apiError'
 
 const EMPTY = {
   client: '',
@@ -78,10 +79,7 @@ export default function OrderForm({ onSubmit, onCancel, loading, error }) {
     onSubmit(payload)
   }
 
-  const apiError = error?.response?.data
-  const errorMessage = apiError
-    ? Object.values(apiError).flat().join(' ')
-    : error?.message
+  const errorMessage = getApiError(error)
 
   const isGarantia = form.service_type === 'GARANTIA'
 

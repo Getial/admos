@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/api/clients";
+import { toast } from "sonner";
 import ClientForm from "./ClientForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ export default function ClientsPage() {
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       setOpen(false);
       setEditing(null);
+      toast.success(editing ? "Cliente actualizado" : "Cliente creado");
     },
   });
 

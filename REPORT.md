@@ -30,18 +30,18 @@
 |----|--------|----------|-----------------|---------------|
 | A1 | `[x]` | N+1 query: `spare_parts.all()` llamado por cada OT en el serializer de lista | `orders/serializers.py:89-97` | Anotaciones con `Subquery` en `get_queryset()` para `spare_parts_total_ann` y `payments_total_ann`. El serializer lee el campo anotado con fallback al cálculo Python. |
 | A2 | `[x]` | N+1 query: `self.payments.all()` en la property `saldo` del modelo | `orders/models.py:108-114` | Resuelto junto con A1 — `payments_total_ann` en el queryset cubre este caso. La property del modelo sigue funcionando para usos fuera del queryset anotado. |
-| A3 | `[ ]` | Race condition en generación de `ot_number`: dos guardados simultáneos pueden producir el mismo número | `orders/models.py:76-80` | Envolver en `@transaction.atomic` con `select_for_update()` sobre el Max, o usar una secuencia de base de datos. |
-| A4 | `[ ]` | Sin manejo de errores en uploads a Cloudinary — si la API falla, el servidor devuelve 500 genérico | `orders/views.py:139-183` | Envolver `cloudinary.uploader.upload` en `try/except cloudinary.exceptions.Error` y devolver 502 con mensaje claro. Igual para el `destroy()` previo al reemplazo. |
-| A5 | `[ ]` | `transition()` sin `@transaction.atomic` — si algo falla a mitad, queda historial de estado sin el cambio en la OT | `orders/views.py:48-94` | Decorar el método con `@transaction.atomic`. |
-| A6 | `[ ]` | Sin rate limiting en `/api/token/` — el endpoint de login es vulnerable a fuerza bruta | `config/settings/` | Configurar `DEFAULT_THROTTLE_CLASSES` en DRF settings con `AnonRateThrottle` y un throttle específico para el endpoint de token (ej. 20/min). |
+| A3 | `[x]` | Race condition en generación de `ot_number`: dos guardados simultáneos pueden producir el mismo número | `orders/models.py:76-80` | `save()` envuelve el `MAX` + asignación en `transaction.atomic()` con `select_for_update()`, garantizando exclusividad. |
+| A4 | `[x]` | Sin manejo de errores en uploads a Cloudinary — si la API falla, el servidor devuelve 500 genérico | `orders/views.py:139-183` | `try/except` en `add_photo`, `remove_photo` y `upload_receipt` (incluido el `destroy` previo). Devuelve 502 con mensaje claro al usuario. |
+| A5 | `[x]` | `transition()` sin `@transaction.atomic` — si algo falla a mitad, queda historial de estado sin el cambio en la OT | `orders/views.py:48-94` | `bulk_create`, `StatusHistory.create` y `work_order.save()` envueltos en `transaction.atomic()`. |
+| A6 | `[x]` | Sin rate limiting en `/api/token/` — el endpoint de login es vulnerable a fuerza bruta | `config/settings/` | `LoginThrottle` (10/min) aplicado al endpoint de token. `AnonRateThrottle` (100/hora) y `UserRateThrottle` (1000/hora) como defaults globales. |
 
 ### Frontend
 
 | ID | Estado | Problema | Archivo / Línea | Recomendación |
 |----|--------|----------|-----------------|---------------|
-| A7 | `[ ]` | Sin Error Boundaries — un error en un dialog puede crashear toda la app | (ausente) | Crear `ErrorBoundary.jsx` y envolver las rutas de features. |
-| A8 | `[ ]` | Violaciones DRY severas: `CATEGORY_LABELS`, `formatCost()`, `formatDate()` y el patrón de extracción de errores de API duplicados en 4-5 archivos | `OrderDetail.jsx`, `OrdersPage.jsx`, `EquipmentPage.jsx`, `ClientForm.jsx`, `EquipmentForm.jsx`, `TransitionDialog.jsx` | Crear `/src/lib/constants.js` para constantes compartidas, `/src/lib/utils.js` para funciones de formato y un hook `useApiError(error)` para el patrón de error. |
-| A9 | `[ ]` | Sin feedback de éxito en mutaciones — el usuario no sabe si la acción completó | múltiples | Implementar un sistema de toasts (ej. sonner o shadcn/ui toast) y dispararlo en `onSuccess` de las mutaciones críticas. |
+| A7 | `[x]` | Sin Error Boundaries — un error en un dialog puede crashear toda la app | (ausente) | Creado `ErrorBoundary.jsx` con opción de reintentar. Envuelve cada ruta de feature individualmente. |
+| A8 | `[x]` | Violaciones DRY severas: `CATEGORY_LABELS`, `formatCost()`, `formatDate()` y el patrón de extracción de errores de API duplicados en 4-5 archivos | `OrderDetail.jsx`, `OrdersPage.jsx`, `EquipmentPage.jsx`, `ClientForm.jsx`, `EquipmentForm.jsx`, `TransitionDialog.jsx` | Creados `lib/constants.js` (`CATEGORY_LABELS`, `CATEGORY_LABELS_SHORT`), `lib/format.js` (`formatDate`, `formatDateShort`, `formatCost`, `formatCostOrNull`) y `lib/apiError.js` (`getApiError`). Eliminados todos los duplicados en 8 archivos. |
+| A9 | `[x]` | Sin feedback de éxito en mutaciones — el usuario no sabe si la acción completó | múltiples | Instalado `sonner`. `<Toaster>` en `App.jsx`. `toast.success()` en `onSuccess` de todas las mutaciones críticas (OTs, repuestos, pagos, fotos, clientes, equipos, usuarios, bonos). |
 | A10 | `[ ]` | `fetch(photo.image_url)` sin manejo de error — si la imagen falla, el anotador se queda en spinner infinito | `PhotoAnnotator.jsx:21` | Agregar `.catch()` al fetch y mostrar un mensaje de error al usuario. |
 
 ---
@@ -58,7 +58,7 @@
 | M4 | `[ ]` | `_fresh_order()` re-ejecuta el queryset completo después de cada mutación — doble consulta innecesaria | `orders/views.py:43-45` | Usar `work_order.refresh_from_db()` sobre la instancia ya modificada y serializar directamente. |
 | M5 | `[ ]` | Lógica de upload a Cloudinary repetida en `add_photo` y `upload_receipt` | `orders/views.py:139,162` | Extraer a `FileUploadService.upload_image(file, folder, quality, width)` en `services.py`. |
 | M6 | `[x]` | Sin `permission_classes` explícito en `ClientViewSet`, `BrandViewSet` y `EquipmentViewSet` — depende de herencia implícita de settings | `clients/views.py:6`, `equipment/views.py:6-17` | Resuelto junto con C2 — todos los viewsets tienen ahora `get_permissions()` explícito con granularidad por acción. |
-| M7 | `[ ]` | `WorkOrder.save()` no protege la generación de `ot_number` con lock (ver también A3) | `orders/models.py:76` | Agregar `select_for_update()` dentro de `@transaction.atomic`. |
+| M7 | `[x]` | Duplicado de A3 — resuelto junto con él. | — | — |
 
 ### Backend — Escalabilidad y DB
 
@@ -91,7 +91,7 @@
 
 | ID | Estado | Problema | Archivo / Línea | Recomendación |
 |----|--------|----------|-----------------|---------------|
-| B1 | `[ ]` | `admin.py` vacíos en todos los apps | todos los apps | Registrar modelos clave (`WorkOrder`, `Client`, `Equipment`, `User`) con `ModelAdmin` y filtros básicos. |
+| B1 | `[x]` | `admin.py` vacíos en todos los apps | todos los apps | Registrados `WorkOrder`, `BonusTier`, `Client`, `Brand`, `Equipment`, `User` con `list_display`, `list_filter` y `search_fields` en sus respectivos `admin.py`. |
 | B2 | `[ ]` | `tests.py` vacíos — cero cobertura de pruebas | todos los apps | Agregar tests mínimos: transiciones de estado, cálculo de precios, validación de saldo en entrega. |
 | B3 | `[ ]` | `get_valid_transitions()` con lógica de garantía mezclada — se puede simplificar con tablas de lookup separadas | `orders/models.py:116-127` | Definir `WARRANTY_TRANSITIONS` y `COBRO_TRANSITIONS` como dicts de clase. |
 | B4 | `[ ]` | `StatusBadge`, `Section` y `Timeline` en `OrderDetail` no están memoizados | `OrderDetail.jsx` | Aplicar `React.memo()` a componentes que reciben props estables. |
@@ -109,3 +109,11 @@
 | 2026-05-16 | C1 | No había repo git — .env nunca commiteado. Creado `.gitignore` raíz y `backend/.env.example`. |
 | 2026-05-17 | C2, M6 | Creado `orders/permissions.py`. Permisos por acción en todos los viewsets. Esquema en `docs/permisos.md`. |
 | 2026-05-17 | A1, A2 | Subquery annotations en `get_queryset()` para totales. Serializer lee campos anotados. |
+| 2026-05-23 | B1 | Registrados todos los modelos clave en admin.py de cada app con filtros y búsqueda. |
+| 2026-05-23 | A3, M7 | `save()` usa `transaction.atomic()` + `select_for_update()` para garantizar unicidad de `ot_number`. M7 era duplicado de A3. |
+| 2026-05-23 | A5 | `transition()` envuelto en `transaction.atomic()` — repuestos, historial y estado de OT se guardan o revierten juntos. |
+| 2026-05-23 | A4 | `try/except` en los tres endpoints de Cloudinary. Devuelve 502 con mensaje al usuario en lugar de 500 genérico. |
+| 2026-05-23 | A7 | `ErrorBoundary.jsx` creado y aplicado por ruta. Errores de render quedan contenidos con opción de reintentar. |
+| 2026-05-23 | A8 | `lib/constants.js`, `lib/format.js`, `lib/apiError.js` centralizan constantes, formatters y extracción de errores. Duplicados eliminados en 8 archivos. |
+| 2026-05-23 | A9 | `sonner` instalado. Toasts de éxito en todas las mutaciones críticas del sistema. |
+| 2026-05-23 | A6 | Rate limiting en login: 10/min por IP. Throttles globales: anon 100/hora, user 1000/hora. |

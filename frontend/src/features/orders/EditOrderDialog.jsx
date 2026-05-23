@@ -15,6 +15,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { AlertCircle } from 'lucide-react'
+import { getApiError } from '@/lib/apiError'
+import { toast } from 'sonner'
 
 export default function EditOrderDialog({ order, open, onClose }) {
   const queryClient = useQueryClient()
@@ -67,6 +69,7 @@ export default function EditOrderDialog({ order, open, onClose }) {
       queryClient.setQueryData(['order', String(order.id)], res.data)
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       onClose()
+      toast.success('OT actualizada')
     },
   })
 
@@ -125,10 +128,7 @@ export default function EditOrderDialog({ order, open, onClose }) {
     }))
   }, [equipmentByType, brandFilter])
 
-  const apiError = mutation.error?.response?.data
-  const errorMessage = apiError
-    ? Object.values(apiError).flat().join(' ')
-    : mutation.error?.message
+  const errorMessage = getApiError(mutation.error)
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AlertCircle } from 'lucide-react'
+import { getApiError } from '@/lib/apiError'
 
 const EMPTY = { name: '', is_authorized: false }
 
@@ -13,10 +14,7 @@ export default function BrandForm({ initial, onSubmit, onCancel, loading, error 
     setForm(initial ?? EMPTY)
   }, [initial])
 
-  const apiError = error?.response?.data
-  const errorMessage = apiError
-    ? Object.values(apiError).flat().join(' ')
-    : error?.message
+  const errorMessage = getApiError(error)
 
   return (
     <form

@@ -22,6 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClipboardList, Search, Plus, ChevronRight } from "lucide-react";
+import { formatDateShort } from "@/lib/format";
+import { toast } from "sonner";
 
 const ACTIVE_STATUSES = new Set([
   "INGRESADO",
@@ -46,12 +48,6 @@ const QUICK_FILTERS = [
   { key: "todas", label: "Todas" },
 ];
 
-function formatDate(iso) {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("es-CO", { dateStyle: "short" }).format(
-    new Date(iso),
-  );
-}
 
 export default function OrdersPage() {
   const navigate = useNavigate();
@@ -87,6 +83,7 @@ export default function OrdersPage() {
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setOpen(false);
+      toast.success("OT creada");
       navigate(`/orders/${res.data.id}`);
     },
   });
@@ -250,7 +247,7 @@ export default function OrdersPage() {
                       <StatusBadge status={order.status} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap max-[600px]:hidden">
-                      {formatDate(order.created_at)}
+                      {formatDateShort(order.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
                       <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />

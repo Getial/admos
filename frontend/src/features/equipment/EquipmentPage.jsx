@@ -14,29 +14,13 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { Wrench, Tag, Search, Plus, Pencil, ShieldCheck } from 'lucide-react'
-
-const CATEGORY_LABELS = {
-  HERRAMIENTA_ELECTRICA_CABLE:      'H. eléctrica con cable',
-  HERRAMIENTA_ELECTRICA_INALAMBRIC: 'H. eléctrica inalámbrica',
-  HERRAMIENTA_NEUMATICA:            'H. neumática',
-  HERRAMIENTA_HIDRAULICA:           'H. hidráulica',
-  MOTOR_ELECTRICO:                  'Motor eléctrico',
-  MOTOR_GASOLINA:                   'Motor a gasolina',
-  MOTOR_DIESEL:                     'Motor diésel',
-  PLANTA_ELECTRICA_GASOLINA:        'Planta eléctrica gasolina',
-  PLANTA_ELECTRICA_DIESEL:          'Planta eléctrica diésel',
-  SOLDADOR_INVERSOR:                'Soldador inversor',
-  SOLDADOR_CONVENCIONAL:            'Soldador convencional',
-  MOTOSOLDADOR:                     'Motosoldador',
-  CORTADOR_PLASMA:                  'Cortador de plasma',
-  OXICORTE:                         'Equipo de oxicorte',
-  AGROFORESTAL:                     'Agroforestal',
-  LINEA_BLANCA:                     'Línea blanca',
-}
+import { CATEGORY_LABELS } from '@/lib/constants'
+import { toast } from 'sonner'
+import { formatCost as _formatCost } from '@/lib/format'
 
 function formatCost(value) {
   if (value == null) return <span className="text-muted-foreground/40">—</span>
-  return `$${Number(value).toLocaleString('es-CO', { maximumFractionDigits: 0 })}`
+  return _formatCost(value)
 }
 
 /* ─── Equipos tab ─────────────────────────────────────────── */
@@ -64,6 +48,7 @@ function EquipmentTab() {
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
       setOpen(false)
       setEditing(null)
+      toast.success(editing ? 'Equipo actualizado' : 'Equipo creado')
     },
   })
 
@@ -213,6 +198,7 @@ function BrandsTab() {
       queryClient.invalidateQueries({ queryKey: ['equipment'] })
       setOpen(false)
       setEditing(null)
+      toast.success(editing ? 'Marca actualizada' : 'Marca creada')
     },
   })
 

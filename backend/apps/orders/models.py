@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Max
 
 from apps.users.models import User
@@ -77,8 +77,15 @@ class WorkOrder(models.Model):
 
     def save(self, *args, **kwargs):
         if self.ot_number is None and not self.brand_ot_number:
-            last = WorkOrder.objects.aggregate(Max('ot_number'))['ot_number__max']
-            self.ot_number = max((last or 0) + 1, self.OT_START)
+            with transaction.atomic():
+                last = (
+                    WorkOrder.objects
+                    .select_for_update()
+                    .aggregate(Max('ot_number'))['ot_number__max']
+                )
+                self.ot_number = max((last or 0) + 1, self.OT_START)
+                super().save(*args, **kwargs)
+                return
         super().save(*args, **kwargs)
 
     @property

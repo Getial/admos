@@ -6,6 +6,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { AlertCircle } from 'lucide-react'
+import { getApiError } from '@/lib/apiError'
 
 const EMPTY = { document_type: 'CEDULA', document_number: '', name: '', phone: '', address: '' }
 
@@ -25,10 +26,7 @@ export default function ClientForm({ initial, onSubmit, onCancel, loading, error
     onSubmit(form)
   }
 
-  const apiError = error?.response?.data
-  const errorMessage = apiError
-    ? Object.values(apiError).flat().join(' ')
-    : error?.message
+  const errorMessage = getApiError(error)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/api/users'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +16,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { AlertCircle, Search, UserPlus, Pencil, ShieldCheck } from 'lucide-react'
+import { getApiError } from '@/lib/apiError'
 
 const ROLES = [
   { value: 'RECEPCIONISTA', label: 'Recepcionista' },
@@ -66,10 +68,7 @@ function UserForm({ initial, onSubmit, onCancel, loading, error }) {
     onSubmit(payload)
   }
 
-  const apiError = error?.response?.data
-  const errorMessage = apiError
-    ? Object.values(apiError).flat().join(' ')
-    : error?.message
+  const errorMessage = getApiError(error)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -199,6 +198,7 @@ export default function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setOpen(false)
       setEditing(null)
+      toast.success(editing ? 'Usuario actualizado' : 'Usuario creado')
     },
   })
 

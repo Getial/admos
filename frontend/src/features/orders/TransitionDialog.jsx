@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import StatusBadge from './StatusBadge'
 import { AlertCircle, ArrowRight, Plus, Trash2, Camera } from 'lucide-react'
+import { getApiError } from '@/lib/apiError'
 import { usersApi } from '@/api/users'
 
 const EMPTY_PART = { description: '', quantity: 1, unit_price: '', available_in_shop: false }
@@ -147,10 +148,7 @@ export default function TransitionDialog({ open, onOpenChange, order, onTransiti
     onTransition(payload)
   }
 
-  const apiError = error?.response?.data
-  const errorMessage = apiError
-    ? Object.values(apiError).flat().join(' ')
-    : error?.message
+  const errorMessage = getApiError(error)
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

@@ -1,5 +1,6 @@
 import cloudinary.uploader
 from decimal import Decimal
+from django.db import transaction
 from django.db.models import DecimalField, F, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
@@ -122,49 +123,50 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         new_status = serializer.validated_data['new_status']
         notes = serializer.validated_data['notes']
 
-        spare_parts_data = serializer.validated_data.get('spare_parts', [])
-        creates_parts = new_status in (WorkOrder.Status.REVISADO, WorkOrder.Status.LISTO_PARA_ENTREGAR)
-        if creates_parts and spare_parts_data:
-            SparePart.objects.bulk_create([
-                SparePart(
-                    work_order=work_order,
-                    description=p['description'],
-                    quantity=p['quantity'],
-                    unit_price=p.get('unit_price'),
-                    available_in_shop=p.get('available_in_shop', False),
-                    client_pays=p.get('client_pays', True),
-                )
-                for p in spare_parts_data
-            ])
+        with transaction.atomic():
+            spare_parts_data = serializer.validated_data.get('spare_parts', [])
+            creates_parts = new_status in (WorkOrder.Status.REVISADO, WorkOrder.Status.LISTO_PARA_ENTREGAR)
+            if creates_parts and spare_parts_data:
+                SparePart.objects.bulk_create([
+                    SparePart(
+                        work_order=work_order,
+                        description=p['description'],
+                        quantity=p['quantity'],
+                        unit_price=p.get('unit_price'),
+                        available_in_shop=p.get('available_in_shop', False),
+                        client_pays=p.get('client_pays', True),
+                    )
+                    for p in spare_parts_data
+                ])
 
-        is_tech = request.user.role in (User.Role.TECNICO, User.Role.JEFE_TALLER)
-        if new_status == WorkOrder.Status.EN_REVISION and is_tech:
-            work_order.reviewing_technician = request.user
-        elif new_status == WorkOrder.Status.EN_REPARACION and is_tech and not work_order.repair_technician:
-            work_order.repair_technician = request.user
+            is_tech = request.user.role in (User.Role.TECNICO, User.Role.JEFE_TALLER)
+            if new_status == WorkOrder.Status.EN_REVISION and is_tech:
+                work_order.reviewing_technician = request.user
+            elif new_status == WorkOrder.Status.EN_REPARACION and is_tech and not work_order.repair_technician:
+                work_order.repair_technician = request.user
 
-        # Asignación manual de técnicos (para flujos que omiten EN_REVISION / EN_REPARACION)
-        if serializer.validated_data.get('reviewing_technician') and not work_order.reviewing_technician:
-            work_order.reviewing_technician = serializer.validated_data['reviewing_technician']
-        if serializer.validated_data.get('repair_technician') and not work_order.repair_technician:
-            work_order.repair_technician = serializer.validated_data['repair_technician']
-        elif new_status == WorkOrder.Status.LISTO_PARA_ENTREGAR:
-            was_repaired = serializer.validated_data.get('was_repaired')
-            if was_repaired is not None:
-                work_order.was_repaired = was_repaired
-        elif new_status == WorkOrder.Status.ENTREGADO:
-            work_order.delivered_at = timezone.now()
+            # Asignación manual de técnicos (para flujos que omiten EN_REVISION / EN_REPARACION)
+            if serializer.validated_data.get('reviewing_technician') and not work_order.reviewing_technician:
+                work_order.reviewing_technician = serializer.validated_data['reviewing_technician']
+            if serializer.validated_data.get('repair_technician') and not work_order.repair_technician:
+                work_order.repair_technician = serializer.validated_data['repair_technician']
+            elif new_status == WorkOrder.Status.LISTO_PARA_ENTREGAR:
+                was_repaired = serializer.validated_data.get('was_repaired')
+                if was_repaired is not None:
+                    work_order.was_repaired = was_repaired
+            elif new_status == WorkOrder.Status.ENTREGADO:
+                work_order.delivered_at = timezone.now()
 
-        StatusHistory.objects.create(
-            work_order=work_order,
-            from_status=work_order.status,
-            to_status=new_status,
-            changed_by=request.user,
-            notes=notes,
-        )
+            StatusHistory.objects.create(
+                work_order=work_order,
+                from_status=work_order.status,
+                to_status=new_status,
+                changed_by=request.user,
+                notes=notes,
+            )
 
-        work_order.status = new_status
-        work_order.save()
+            work_order.status = new_status
+            work_order.save()
 
         return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
 
@@ -225,16 +227,19 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         file = request.FILES.get('image')
         if not file:
             return Response({'error': 'No se recibió ningún archivo.'}, status=status.HTTP_400_BAD_REQUEST)
-        if payment.receipt_public_id:
-            cloudinary.uploader.destroy(payment.receipt_public_id)
-        result = cloudinary.uploader.upload(
-            file,
-            folder=f'admos/receipts/{work_order.id}',
-            resource_type='image',
-            quality=85,
-            width=1600,
-            crop='limit',
-        )
+        try:
+            if payment.receipt_public_id:
+                cloudinary.uploader.destroy(payment.receipt_public_id)
+            result = cloudinary.uploader.upload(
+                file,
+                folder=f'admos/receipts/{work_order.id}',
+                resource_type='image',
+                quality=85,
+                width=1600,
+                crop='limit',
+            )
+        except Exception:
+            return Response({'error': 'No se pudo subir el archivo. Intenta de nuevo.'}, status=status.HTTP_502_BAD_GATEWAY)
         payment.receipt_url = result['secure_url']
         payment.receipt_public_id = result['public_id']
         payment.save()
@@ -248,14 +253,17 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         file = request.FILES.get('image')
         if not file:
             return Response({'error': 'No se recibió ningún archivo.'}, status=status.HTTP_400_BAD_REQUEST)
-        result = cloudinary.uploader.upload(
-            file,
-            folder=f'admos/orders/{work_order.id}',
-            resource_type='image',
-            quality='auto',
-            width=1920,
-            crop='limit',
-        )
+        try:
+            result = cloudinary.uploader.upload(
+                file,
+                folder=f'admos/orders/{work_order.id}',
+                resource_type='image',
+                quality='auto',
+                width=1920,
+                crop='limit',
+            )
+        except Exception:
+            return Response({'error': 'No se pudo subir la foto. Intenta de nuevo.'}, status=status.HTTP_502_BAD_GATEWAY)
         DiagnosticPhoto.objects.create(
             work_order=work_order,
             image_url=result['secure_url'],
@@ -269,7 +277,10 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
     def remove_photo(self, request, pk=None, photo_pk=None):
         work_order = self.get_object()
         photo = get_object_or_404(DiagnosticPhoto, pk=photo_pk, work_order=work_order)
-        cloudinary.uploader.destroy(photo.public_id)
+        try:
+            cloudinary.uploader.destroy(photo.public_id)
+        except Exception:
+            return Response({'error': 'No se pudo eliminar la foto. Intenta de nuevo.'}, status=status.HTTP_502_BAD_GATEWAY)
         photo.delete()
         return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
 

@@ -7,6 +7,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
 import { BarChart2, Award, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { CATEGORY_LABELS_SHORT as CATEGORY_LABELS } from "@/lib/constants";
+import { toast } from "sonner";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -204,24 +206,6 @@ function ProductivityTab({ start, end, isChief }) {
 
 // ─── Equipos y repuestos ──────────────────────────────────────────────────────
 
-const CATEGORY_LABELS = {
-  HERRAMIENTA_ELECTRICA_CABLE: "H. eléctrica con cable",
-  HERRAMIENTA_ELECTRICA_INALAMBRIC: "H. eléctrica inalámbrica",
-  HERRAMIENTA_NEUMATICA: "H. neumática",
-  HERRAMIENTA_HIDRAULICA: "H. hidráulica",
-  MOTOR_ELECTRICO: "Motor eléctrico",
-  MOTOR_GASOLINA: "Motor gasolina",
-  MOTOR_DIESEL: "Motor diésel",
-  PLANTA_ELECTRICA_GASOLINA: "Planta gasolina",
-  PLANTA_ELECTRICA_DIESEL: "Planta diésel",
-  SOLDADOR_INVERSOR: "Soldador inversor",
-  SOLDADOR_CONVENCIONAL: "Soldador convencional",
-  MOTOSOLDADOR: "Motosoldador",
-  CORTADOR_PLASMA: "Cortador plasma",
-  OXICORTE: "Oxicorte",
-  AGROFORESTAL: "Agroforestal",
-  LINEA_BLANCA: "Línea blanca",
-};
 
 function EquipmentTab({ start, end }) {
   const { data, isLoading } = useQuery({
@@ -571,17 +555,17 @@ function BonusTab({ start, end }) {
 
   const createMutation = useMutation({
     mutationFn: bonusTiersApi.create,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bonus-tiers"] }); queryClient.invalidateQueries({ queryKey: ["dashboard", "bonuses"] }); setAdding(false); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bonus-tiers"] }); queryClient.invalidateQueries({ queryKey: ["dashboard", "bonuses"] }); setAdding(false); toast.success("Tramo creado"); },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => bonusTiersApi.update(id, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bonus-tiers"] }); queryClient.invalidateQueries({ queryKey: ["dashboard", "bonuses"] }); setEditingId(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bonus-tiers"] }); queryClient.invalidateQueries({ queryKey: ["dashboard", "bonuses"] }); setEditingId(null); toast.success("Tramo actualizado"); },
   });
 
   const deleteMutation = useMutation({
     mutationFn: bonusTiersApi.remove,
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bonus-tiers"] }); queryClient.invalidateQueries({ queryKey: ["dashboard", "bonuses"] }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["bonus-tiers"] }); queryClient.invalidateQueries({ queryKey: ["dashboard", "bonuses"] }); toast.success("Tramo eliminado"); },
   });
 
   const tiers  = tiersData ?? [];

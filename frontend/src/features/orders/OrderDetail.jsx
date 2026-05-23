@@ -7,6 +7,10 @@ import StatusBadge from "./StatusBadge";
 import TransitionDialog from "./TransitionDialog";
 import PhotoAnnotator from "./PhotoAnnotator";
 import EditOrderDialog from "./EditOrderDialog";
+import { CATEGORY_LABELS } from "@/lib/constants";
+import { formatDate, formatCost } from "@/lib/format";
+import { getApiError } from "@/lib/apiError";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -32,24 +36,6 @@ import {
   Printer,
 } from "lucide-react";
 
-const CATEGORY_LABELS = {
-  HERRAMIENTA_ELECTRICA_CABLE: "Herramienta eléctrica con cable",
-  HERRAMIENTA_ELECTRICA_INALAMBRIC: "Herramienta eléctrica inalámbrica",
-  HERRAMIENTA_NEUMATICA: "Herramienta neumática",
-  HERRAMIENTA_HIDRAULICA: "Herramienta hidráulica",
-  MOTOR_ELECTRICO: "Motor eléctrico",
-  MOTOR_GASOLINA: "Motor a gasolina",
-  MOTOR_DIESEL: "Motor diésel",
-  PLANTA_ELECTRICA_GASOLINA: "Planta eléctrica a gasolina",
-  PLANTA_ELECTRICA_DIESEL: "Planta eléctrica diésel",
-  SOLDADOR_INVERSOR: "Soldador inversor",
-  SOLDADOR_CONVENCIONAL: "Soldador convencional",
-  MOTOSOLDADOR: "Motosoldador",
-  CORTADOR_PLASMA: "Cortador de plasma",
-  OXICORTE: "Equipo de oxicorte",
-  AGROFORESTAL: "Agroforestal",
-  LINEA_BLANCA: "Línea blanca",
-};
 
 function buildWhatsAppUrl(order) {
   const phone = `57${order.client_detail?.phone?.replace(/\D/g, "")}`;
@@ -83,18 +69,6 @@ function buildWhatsAppUrl(order) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 
-function formatDate(iso) {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("es-CO", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(iso));
-}
-
-function formatCost(value) {
-  if (value == null) return "—";
-  return `$${Number(value).toLocaleString("es-CO", { maximumFractionDigits: 0 })}`;
-}
 
 function InfoRow({ label, value }) {
   return (
@@ -180,6 +154,7 @@ export default function OrderDetail() {
       queryClient.setQueryData(["order", id], res.data);
       queryClient.invalidateQueries({ queryKey: ["orders"] });
       setTransitionOpen(false);
+      toast.success("Estado actualizado");
     },
   });
 
@@ -189,13 +164,9 @@ export default function OrderDetail() {
     onSuccess: (res) => {
       queryClient.setQueryData(["order", id], res.data);
       setPatchError(null);
+      toast.success("Cambios guardados");
     },
-    onError: (err) =>
-      setPatchError(
-        err?.response?.data
-          ? Object.values(err.response.data).flat().join(" ")
-          : "No se pudo guardar",
-      ),
+    onError: (err) => setPatchError(getApiError(err) ?? "No se pudo guardar"),
   });
 
   const addPartMutation = useMutation({
@@ -203,6 +174,7 @@ export default function OrderDetail() {
     onSuccess: (res) => {
       queryClient.setQueryData(["order", id], res.data);
       setNewPart(EMPTY_PART);
+      toast.success("Repuesto agregado");
     },
   });
 
@@ -222,6 +194,7 @@ export default function OrderDetail() {
     onSuccess: (res) => {
       queryClient.setQueryData(["order", id], res.data);
       setNewPayment(EMPTY_PAYMENT);
+      toast.success("Abono registrado");
     },
   });
 
@@ -233,12 +206,18 @@ export default function OrderDetail() {
   const uploadReceiptMutation = useMutation({
     mutationFn: ({ paymentId, file }) =>
       ordersApi.uploadReceipt(id, paymentId, file),
-    onSuccess: (res) => queryClient.setQueryData(["order", id], res.data),
+    onSuccess: (res) => {
+      queryClient.setQueryData(["order", id], res.data);
+      toast.success("Recibo subido");
+    },
   });
 
   const addPhotoMutation = useMutation({
     mutationFn: (file) => ordersApi.addPhoto(id, file),
-    onSuccess: (res) => queryClient.setQueryData(["order", id], res.data),
+    onSuccess: (res) => {
+      queryClient.setQueryData(["order", id], res.data);
+      toast.success("Foto agregada");
+    },
   });
 
   const removePhotoMutation = useMutation({
@@ -251,6 +230,7 @@ export default function OrderDetail() {
     onSuccess: (res) => {
       queryClient.setQueryData(["order", id], res.data);
       setAnnotatingPhoto(null);
+      toast.success("Anotación guardada");
     },
   });
 

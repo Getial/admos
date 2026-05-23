@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle } from "lucide-react";
+import { getApiError } from "@/lib/apiError";
 
 const CATEGORIES = [
   {
@@ -22,11 +23,11 @@ const CATEGORIES = [
     options: [
       {
         value: "HERRAMIENTA_ELECTRICA_CABLE",
-        label: "Herramienta eléctrica con cable",
+        label: "H. eléctrica con cable",
       },
       {
         value: "HERRAMIENTA_ELECTRICA_INALAMBRIC",
-        label: "Herramienta eléctrica inalámbrica",
+        label: "H. eléctrica inalámbrica",
       },
       { value: "HERRAMIENTA_NEUMATICA", label: "Herramienta neumática" },
       { value: "HERRAMIENTA_HIDRAULICA", label: "Herramienta hidráulica" },
@@ -131,10 +132,7 @@ export default function EquipmentForm({
     onSubmit(payload);
   }
 
-  const apiError = error?.response?.data;
-  const errorMessage = apiError
-    ? Object.values(apiError).flat().join(" ")
-    : error?.message;
+  const errorMessage = getApiError(error);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -175,7 +173,7 @@ export default function EquipmentForm({
             <SelectTrigger id="eq-category">
               <SelectValue placeholder="Seleccionar…" />
             </SelectTrigger>
-            <SelectContent className="min-w-[250px]">
+            <SelectContent className="min-w-[220px]">
               {CATEGORIES.map((g) => (
                 <SelectGroup key={g.group}>
                   <SelectLabel>{g.group}</SelectLabel>
