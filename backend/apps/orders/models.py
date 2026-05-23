@@ -73,7 +73,7 @@ class WorkOrder(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-    OT_START = 3335
+    OT_START = 3339
 
     def save(self, *args, **kwargs):
         if self.ot_number is None and not self.brand_ot_number:
