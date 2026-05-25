@@ -31,7 +31,7 @@ class WorkOrder(models.Model):
         'INGRESADO':            ['EN_REVISION'],
         'EN_REVISION':          ['REVISADO', 'EN_ESPERA_MARCA', 'LISTO_PARA_ENTREGAR'],
         'REVISADO':             ['COTIZADO', 'LISTO_PARA_ENTREGAR'],
-        'EN_ESPERA_MARCA':      ['EN_ESPERA_REPUESTOS', 'EN_REPARACION', 'NEGACION_GARANTIA', 'LISTO_PARA_ENTREGAR'],
+        'EN_ESPERA_MARCA':      ['EN_ESPERA_REPUESTOS', 'REPUESTOS_EN_TALLER', 'EN_REPARACION', 'NEGACION_GARANTIA', 'LISTO_PARA_ENTREGAR'],
         'NEGACION_GARANTIA':    ['COTIZADO', 'LISTO_PARA_ENTREGAR'],
         'COTIZADO':             ['EN_ESPERA_ABONO', 'EN_ESPERA_REPUESTOS', 'EN_REPARACION'],
         'EN_ESPERA_ABONO':      ['EN_ESPERA_REPUESTOS', 'REPUESTOS_EN_TALLER', 'EN_REPARACION'],
@@ -112,6 +112,21 @@ class WorkOrder(models.Model):
             for p in self.spare_parts.all()
             if p.unit_price is not None
         )
+        return labor + parts
+
+    @property
+    def taller_revenue(self):
+        """Ingresos totales del taller por esta OT (marca + cliente)."""
+        labor = (self.labor_cost or Decimal('0')) + (self.client_labor_cost or Decimal('0'))
+        parts = sum(
+            p.quantity * p.unit_price
+            for p in self.spare_parts.all()
+            if p.unit_price is not None and (
+                self.service_type == self.ServiceType.COBRO or p.client_pays
+            )
+        )
+        if self.service_type == self.ServiceType.COBRO and self.was_repaired is False:
+            return self.revision_cost or Decimal('0')
         return labor + parts
 
     @property

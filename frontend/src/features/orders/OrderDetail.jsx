@@ -799,11 +799,7 @@ export default function OrderDetail() {
           <Separator />
 
           {/* Resumen de costos */}
-          {(!isGarantia ||
-            Number(order.saldo) > 0 ||
-            order.status === "NEGACION_GARANTIA" ||
-            order.payments?.length > 0) && (
-            <div className="space-y-2 pl-6">
+          <div className="space-y-2 pl-6">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">
@@ -834,7 +830,57 @@ export default function OrderDetail() {
 
               {isGarantia ? (
                 <>
-                  {/* Mano de obra a cargo del cliente — solo en negación */}
+                  {/* Mano de obra pagada por la marca */}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">
+                      Mano de obra (marca)
+                    </span>
+                    {editingLabor ? (
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        autoFocus
+                        value={laborInput}
+                        onChange={(e) => setLaborInput(e.target.value)}
+                        onBlur={() => {
+                          const v = parseFloat(laborInput);
+                          if (!isNaN(v) && v >= 0)
+                            patchMutation.mutate({ labor_cost: v });
+                          setEditingLabor(false);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.target.blur();
+                          if (e.key === "Escape") setEditingLabor(false);
+                        }}
+                        className="h-7 w-32 text-right text-sm"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={order.status === "ENTREGADO"}
+                        onClick={() => {
+                          setLaborInput(order.labor_cost ?? "");
+                          setEditingLabor(true);
+                        }}
+                        className="flex items-center gap-1 hover:text-primary transition-colors group disabled:pointer-events-none"
+                      >
+                        {order.labor_cost ? (
+                          formatCost(order.labor_cost)
+                        ) : (
+                          <span className="text-muted-foreground text-xs">
+                            Sin valor
+                          </span>
+                        )}
+                        {order.status !== "ENTREGADO" && (
+                          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Mano de obra a cargo del cliente */}
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-muted-foreground">
                       Mano de obra (cliente)
@@ -998,7 +1044,6 @@ export default function OrderDetail() {
                 <p className="text-xs text-destructive">{patchError}</p>
               )}
             </div>
-          )}
 
           {(!isGarantia ||
             Number(order.final_price) > 0 ||

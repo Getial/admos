@@ -158,8 +158,11 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
         if equipment:
             if not validated_data.get('revision_cost') and equipment.default_revision_cost:
                 validated_data['revision_cost'] = equipment.default_revision_cost
-            if not validated_data.get('labor_cost') and equipment.default_labor_cost:
-                validated_data['labor_cost'] = equipment.default_labor_cost
+            if not validated_data.get('labor_cost'):
+                is_garantia = validated_data.get('service_type') == WorkOrder.ServiceType.GARANTIA
+                default = equipment.brand_labor_price if is_garantia else equipment.default_labor_cost
+                if default:
+                    validated_data['labor_cost'] = default
 
         validated_data['created_by'] = user
         work_order = super().create(validated_data)

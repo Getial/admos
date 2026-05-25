@@ -54,11 +54,7 @@ class ProductivityView(APIView):
         for sh in qs:
             wo = sh.work_order
             tech = wo.repair_technician
-            labor = (
-                (wo.labor_cost or Decimal('0'))
-                if wo.service_type == WorkOrder.ServiceType.COBRO
-                else (wo.client_labor_cost or Decimal('0'))
-            )
+            labor = wo.labor_cost or Decimal('0')
             day = str(sh.changed_at.date())
 
             if tech.id not in by_tech:
@@ -166,7 +162,7 @@ class RevenueView(APIView):
             if not wo:
                 continue
 
-            revenue = wo.final_price
+            revenue = wo.taller_revenue
             stype = wo.service_type
             month = sh.changed_at.strftime('%Y-%m')
 
@@ -309,11 +305,7 @@ class BonusView(APIView):
         for sh in transitions:
             wo = sh.work_order
             tech = wo.repair_technician
-            labor = (
-                (wo.labor_cost or Decimal('0'))
-                if wo.service_type == WorkOrder.ServiceType.COBRO
-                else (wo.client_labor_cost or Decimal('0'))
-            )
+            labor = wo.labor_cost or Decimal('0')
 
             if tech.id not in by_tech:
                 by_tech[tech.id] = {

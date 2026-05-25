@@ -45,12 +45,14 @@ export default function OrderForm({ onSubmit, onCancel, loading, error }) {
     queryFn: () => brandsApi.list().then((r) => r.data),
   })
 
-  // Precargar costos y marca de garantía al seleccionar equipo
+  // Precargar costos y marca de garantía al seleccionar equipo o tipo de servicio
   useEffect(() => {
     if (!form.equipment) return
     const eq = equipment.find((e) => String(e.id) === form.equipment)
     if (eq) {
-      const laborVal = eq.default_labor_cost != null ? Math.round(Number(eq.default_labor_cost)) : ''
+      const isGar = form.service_type === 'GARANTIA'
+      const laborSource = isGar ? eq.brand_labor_price : eq.default_labor_cost
+      const laborVal = laborSource != null ? Math.round(Number(laborSource)) : ''
       setForm((prev) => ({
         ...prev,
         revision_cost: eq.default_revision_cost != null ? Math.round(Number(eq.default_revision_cost)) : '',
@@ -60,7 +62,7 @@ export default function OrderForm({ onSubmit, onCancel, loading, error }) {
       if (laborVal !== '') setShowLaborCost(true)
       if (eq.brand) setBrandFilter(String(eq.brand))
     }
-  }, [form.equipment, equipment])
+  }, [form.equipment, form.service_type, equipment])
 
   function set(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }))

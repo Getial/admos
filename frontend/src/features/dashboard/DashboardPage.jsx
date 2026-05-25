@@ -101,6 +101,75 @@ function DateRange({ start, end, onChange }) {
   );
 }
 
+// ─── BonusProgress ───────────────────────────────────────────────────────────
+
+function BonusProgress({ labor }) {
+  const { data: tiers = [], isLoading } = useQuery({
+    queryKey: ["bonus-tiers"],
+    queryFn: () => bonusTiersApi.list().then((r) => r.data),
+  });
+
+  if (isLoading || tiers.length === 0) return null;
+
+  const sorted = [...tiers].sort((a, b) => Number(a.threshold) - Number(b.threshold));
+  const currentTier = [...sorted].reverse().find((t) => labor >= Number(t.threshold)) ?? null;
+  const nextTier    = sorted.find((t) => labor < Number(t.threshold)) ?? null;
+
+  const pct = nextTier ? Math.min((labor / Number(nextTier.threshold)) * 100, 100) : 100;
+
+  return (
+    <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
+      <div className="flex items-center gap-2">
+        <Award className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold text-foreground">Estado de bono</p>
+      </div>
+
+      {currentTier && (
+        <div className="flex items-center gap-3 rounded-lg bg-primary/5 border border-primary/20 px-4 py-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 shrink-0">
+            <Award className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {currentTier.label || `Meta ≥ ${fmt(currentTier.threshold)}`} alcanzada
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Bono: <span className="font-semibold text-primary">{fmt(currentTier.bonus_amount)}</span>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {nextTier ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-medium text-foreground">
+              {nextTier.label || `Meta ≥ ${fmt(nextTier.threshold)}`}
+            </span>
+            <span className="text-muted-foreground text-xs">
+              Faltan {fmt(Number(nextTier.threshold) - labor)}
+            </span>
+          </div>
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{fmt(labor)} acumulado</span>
+            <span>{Math.round(pct)}% · Bono: {fmt(nextTier.bonus_amount)}</span>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          ¡Alcanzaste la meta más alta del período!
+        </p>
+      )}
+    </div>
+  );
+}
+
 // ─── Productividad ───────────────────────────────────────────────────────────
 
 function ProductivityTab({ start, end, isChief }) {
@@ -131,6 +200,8 @@ function ProductivityTab({ start, end, isChief }) {
 
   return (
     <div className="space-y-6">
+      {!isChief && <BonusProgress labor={total} />}
+
       <div className={`grid gap-4 ${isChief ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"}`}>
         <StatCard label="MO total período" value={fmt(total)} />
         <StatCard label="OTs cerradas" value={totalOts} />
