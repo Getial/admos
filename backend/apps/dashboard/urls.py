@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ProductivityView, EquipmentStatsView, RevenueView, RepairTimesView, BonusView
+from .views import ProductivityView, EquipmentStatsView, RevenueView, RepairTimesView, BonusView, WorkflowStatusView
 
 urlpatterns = [
     path('dashboard/productivity/',    ProductivityView.as_view(),    name='dashboard-productivity'),
@@ -7,4 +7,5 @@ urlpatterns = [
     path('dashboard/revenue/',         RevenueView.as_view(),         name='dashboard-revenue'),
     path('dashboard/repair-times/',    RepairTimesView.as_view(),     name='dashboard-repair-times'),
     path('dashboard/bonuses/',         BonusView.as_view(),           name='dashboard-bonuses'),
+    path('dashboard/workflow/',        WorkflowStatusView.as_view(),  name='dashboard-workflow'),
 ]

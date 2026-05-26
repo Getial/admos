@@ -6,7 +6,7 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
-import { BarChart2, Award, Plus, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { BarChart2, Award, Plus, Trash2, ChevronDown, ChevronRight, Activity } from "lucide-react";
 import { CATEGORY_LABELS_SHORT as CATEGORY_LABELS } from "@/lib/constants";
 import { toast } from "sonner";
 
@@ -66,6 +66,7 @@ function EmptyChart({ message = "Sin datos en el período seleccionado" }) {
 // ─── tabs ────────────────────────────────────────────────────────────────────
 
 const TABS_CHIEF = [
+  { key: "workflow",     label: "Estado del taller" },
   { key: "productivity", label: "Productividad" },
   { key: "equipment",    label: "Equipos y repuestos" },
   { key: "revenue",      label: "Ingresos" },
@@ -511,6 +512,131 @@ function TimesTab({ start, end }) {
   );
 }
 
+// ─── Estado del taller ───────────────────────────────────────────────────────
+
+const STATUS_META = {
+  INGRESADO:            { label: "Ingresado",               color: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",       dot: "bg-slate-400" },
+  EN_REVISION:          { label: "En revisión",             color: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",         dot: "bg-blue-500" },
+  REVISADO:             { label: "Revisado",                color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300",         dot: "bg-cyan-500" },
+  EN_ESPERA_MARCA:      { label: "En espera de marca",      color: "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300", dot: "bg-orange-500" },
+  NEGACION_GARANTIA:    { label: "Negación de garantía",    color: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",             dot: "bg-red-500" },
+  COTIZADO:             { label: "Cotizado",                color: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300", dot: "bg-violet-500" },
+  EN_ESPERA_ABONO:      { label: "En espera de abono",      color: "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",         dot: "bg-pink-500" },
+  EN_ESPERA_REPUESTOS:  { label: "En espera de repuestos",  color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-300", dot: "bg-yellow-500" },
+  REPUESTOS_EN_TALLER:  { label: "Repuestos en taller",     color: "bg-lime-100 text-lime-700 dark:bg-lime-900/40 dark:text-lime-300",         dot: "bg-lime-500" },
+  EN_REPARACION:        { label: "En reparación",           color: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",     dot: "bg-green-500" },
+  LISTO_PARA_ENTREGAR:  { label: "Listo para entregar",     color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300", dot: "bg-emerald-500" },
+}
+
+function WorkflowStatusCard({ statusKey, ots }) {
+  const [open, setOpen] = useState(false)
+  const meta = STATUS_META[statusKey] ?? { label: statusKey, color: "bg-muted text-muted-foreground", dot: "bg-muted-foreground" }
+
+  if (ots.length === 0) return null
+
+  return (
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <button
+        className="w-full flex items-center justify-between gap-4 px-5 py-4 hover:bg-muted/30 transition-colors"
+        onClick={() => setOpen((o) => !o)}
+      >
+        <div className="flex items-center gap-3">
+          {open
+            ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+            : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.color}`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+            {meta.label}
+          </span>
+        </div>
+        <span className="text-sm font-semibold text-foreground tabular-nums">
+          {ots.length} OT{ots.length !== 1 ? "s" : ""}
+        </span>
+      </button>
+
+      {open && (
+        <div className="border-t border-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-xs text-muted-foreground border-b border-border bg-muted/40">
+                <th className="text-left px-5 py-2 font-medium">OT</th>
+                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Cliente</th>
+                <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Equipo</th>
+                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Técnico</th>
+                <th className="text-right px-5 py-2 font-medium">Días</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ots.map((ot) => (
+                <tr key={ot.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <td className="px-5 py-2.5">
+                    <a
+                      href={`/orders/${ot.id}`}
+                      className="font-mono text-xs text-primary hover:underline"
+                    >
+                      {ot.ot_number}
+                    </a>
+                    <p className="text-xs text-muted-foreground sm:hidden">{ot.client}</p>
+                  </td>
+                  <td className="px-3 py-2.5 text-foreground hidden sm:table-cell">{ot.client}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{ot.equipment}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">
+                    {ot.technician ?? <span className="text-muted-foreground/40">—</span>}
+                  </td>
+                  <td className="px-5 py-2.5 text-right tabular-nums">
+                    <span className={`font-medium ${ot.days_open >= 7 ? "text-destructive" : ot.days_open >= 3 ? "text-yellow-600 dark:text-yellow-400" : "text-muted-foreground"}`}>
+                      {Math.floor(ot.days_open)}d
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WorkflowTab() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", "workflow"],
+    queryFn: () => dashboardApi.workflow().then((r) => r.data),
+    refetchInterval: 60_000,
+  })
+
+  if (isLoading) return <div className="text-sm text-muted-foreground py-8 text-center">Cargando…</div>
+
+  const byStatus = data?.by_status ?? {}
+  const totalActive = data?.total_active ?? 0
+
+  const bottlenecks = Object.entries(byStatus)
+    .filter(([, ots]) => ots.some((o) => o.days_open >= 7))
+    .length
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <StatCard label="OTs activas" value={totalActive} />
+        <StatCard label="Estados con actividad" value={Object.values(byStatus).filter((o) => o.length > 0).length} />
+        <StatCard label="Con +7 días" value={bottlenecks} sub={bottlenecks > 0 ? "requieren atención" : "todo al día"} />
+      </div>
+
+      <div className="space-y-2">
+        {Object.entries(byStatus).map(([status, ots]) => (
+          <WorkflowStatusCard key={status} statusKey={status} ots={ots} />
+        ))}
+        {totalActive === 0 && (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <Activity className="h-10 w-10 text-muted-foreground/40" />
+            <p className="font-medium text-muted-foreground">No hay OTs activas en este momento</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Bonos ───────────────────────────────────────────────────────────────────
 
 function TierForm({ onSave, onCancel, initial = {} }) {
@@ -720,7 +846,7 @@ export default function DashboardPage() {
   const isChief = user?.role === "JEFE_TALLER";
   const tabs = isChief ? TABS_CHIEF : TABS_TECH;
 
-  const [activeTab, setActiveTab] = useState("productivity");
+  const [activeTab, setActiveTab] = useState(isChief ? "workflow" : "productivity");
   const [start, setStart] = useState(isoFirstOfMonth);
   const [end,   setEnd]   = useState(isoToday);
 
@@ -763,6 +889,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Tab content */}
+      {activeTab === "workflow"     && <WorkflowTab />}
       {activeTab === "productivity" && <ProductivityTab start={start} end={end} isChief={isChief} />}
       {activeTab === "equipment"    && <EquipmentTab    start={start} end={end} />}
       {activeTab === "revenue"      && <RevenueTab      start={start} end={end} />}

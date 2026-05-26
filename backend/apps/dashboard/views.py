@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from django.utils.dateparse import parse_date
@@ -352,4 +352,62 @@ class BonusView(APIView):
                 for t in tiers
             ],
             'results': results,
+        })
+
+
+WORKFLOW_ORDER = [
+    WorkOrder.Status.INGRESADO,
+    WorkOrder.Status.EN_REVISION,
+    WorkOrder.Status.REVISADO,
+    WorkOrder.Status.EN_ESPERA_MARCA,
+    WorkOrder.Status.NEGACION_GARANTIA,
+    WorkOrder.Status.COTIZADO,
+    WorkOrder.Status.EN_ESPERA_ABONO,
+    WorkOrder.Status.EN_ESPERA_REPUESTOS,
+    WorkOrder.Status.REPUESTOS_EN_TALLER,
+    WorkOrder.Status.EN_REPARACION,
+    WorkOrder.Status.LISTO_PARA_ENTREGAR,
+]
+
+
+class WorkflowStatusView(APIView):
+    """OTs activas agrupadas por estado — snapshot del taller en este momento."""
+    permission_classes = [IsTallerChief]
+
+    def get(self, request):
+        now = datetime.now(tz=timezone.utc)
+
+        qs = (
+            WorkOrder.objects
+            .exclude(status=WorkOrder.Status.ENTREGADO)
+            .select_related('client', 'equipment__brand', 'repair_technician', 'reviewing_technician')
+            .order_by('created_at')
+        )
+
+        by_status = {s: [] for s in WORKFLOW_ORDER}
+
+        for wo in qs:
+            if wo.status not in by_status:
+                continue
+            days_open = (now - wo.created_at).total_seconds() / 86400
+            tech = wo.repair_technician or wo.reviewing_technician
+            by_status[wo.status].append({
+                'id': wo.id,
+                'ot_number': wo.display_number,
+                'client': wo.client.name,
+                'equipment': f'{wo.equipment.brand.name} {wo.equipment.product_type}'.strip()
+                    if wo.equipment and wo.equipment.brand else (wo.equipment.product_type if wo.equipment else ''),
+                'service_type': wo.service_type,
+                'technician': _name(tech) if tech else None,
+                'days_open': round(days_open, 1),
+                'created_at': wo.created_at.isoformat(),
+            })
+
+        counts = {s: len(ots) for s, ots in by_status.items()}
+        total_active = sum(counts.values())
+
+        return Response({
+            'total_active': total_active,
+            'counts': counts,
+            'by_status': by_status,
         })

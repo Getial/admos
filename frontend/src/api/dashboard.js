@@ -11,6 +11,7 @@ export const dashboardApi = {
   revenue:       (start, end) => api.get('/dashboard/revenue/',      params(start, end)),
   repairTimes:   (start, end) => api.get('/dashboard/repair-times/', params(start, end)),
   bonuses:       (start, end) => api.get('/dashboard/bonuses/',      params(start, end)),
+  workflow:      ()           => api.get('/dashboard/workflow/'),
 }
 
 export const bonusTiersApi = {
