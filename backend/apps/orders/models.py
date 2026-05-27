@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db import models, transaction
 from django.db.models import Max
+from apps.orders.services import PricingService, WorkOrderStateMachine
 
 from apps.users.models import User
 from apps.clients.models import Client
@@ -27,20 +28,9 @@ class WorkOrder(models.Model):
         LISTO_PARA_ENTREGAR = 'LISTO_PARA_ENTREGAR', 'Listo para entregar'
         ENTREGADO           = 'ENTREGADO',           'Entregado'
 
-    VALID_TRANSITIONS = {
-        'INGRESADO':            ['EN_REVISION'],
-        'EN_REVISION':          ['REVISADO', 'EN_ESPERA_MARCA', 'LISTO_PARA_ENTREGAR'],
-        'REVISADO':             ['COTIZADO', 'LISTO_PARA_ENTREGAR'],
-        'EN_ESPERA_MARCA':      ['EN_ESPERA_REPUESTOS', 'REPUESTOS_EN_TALLER', 'EN_REPARACION', 'NEGACION_GARANTIA', 'LISTO_PARA_ENTREGAR'],
-        'NEGACION_GARANTIA':    ['COTIZADO', 'LISTO_PARA_ENTREGAR'],
-        'COTIZADO':             ['EN_ESPERA_ABONO', 'EN_ESPERA_REPUESTOS', 'EN_REPARACION'],
-        'EN_ESPERA_ABONO':      ['EN_ESPERA_REPUESTOS', 'REPUESTOS_EN_TALLER', 'EN_REPARACION'],
-        'EN_ESPERA_REPUESTOS':  ['REPUESTOS_EN_TALLER'],
-        'REPUESTOS_EN_TALLER':  ['EN_REPARACION'],
-        'EN_REPARACION':        ['LISTO_PARA_ENTREGAR'],
-        'LISTO_PARA_ENTREGAR':  ['ENTREGADO'],
-        'ENTREGADO':            [],
-    }
+    # Las transiciones viven en WorkOrderStateMachine — se mantiene aquí solo como alias
+    # para compatibilidad con código existente que pudiera leerlo directamente.
+    VALID_TRANSITIONS = WorkOrderStateMachine.VALID_TRANSITIONS
 
     ot_number           = models.PositiveIntegerField(unique=True, editable=False, null=True, blank=True)
     client              = models.ForeignKey(Client, on_delete=models.PROTECT, related_name='work_orders')
@@ -95,60 +85,19 @@ class WorkOrder(models.Model):
         return f'{self.ot_number:06d}'
 
     @property
-    def final_price(self):
-        if self.service_type == self.ServiceType.GARANTIA:
-            labor = self.client_labor_cost or Decimal('0')
-            parts = sum(
-                p.quantity * p.unit_price
-                for p in self.spare_parts.all()
-                if p.unit_price is not None and p.client_pays
-            )
-            return labor + parts
-        if self.was_repaired is False:
-            return self.revision_cost or Decimal('0')
-        labor = self.labor_cost or Decimal('0')
-        parts = sum(
-            p.quantity * p.unit_price
-            for p in self.spare_parts.all()
-            if p.unit_price is not None
-        )
-        return labor + parts
+    def final_price(self) -> Decimal:
+        return PricingService.final_price(self)
 
     @property
-    def taller_revenue(self):
-        """Ingresos totales del taller por esta OT (marca + cliente)."""
-        labor = (self.labor_cost or Decimal('0')) + (self.client_labor_cost or Decimal('0'))
-        parts = sum(
-            p.quantity * p.unit_price
-            for p in self.spare_parts.all()
-            if p.unit_price is not None and (
-                self.service_type == self.ServiceType.COBRO or p.client_pays
-            )
-        )
-        if self.service_type == self.ServiceType.COBRO and self.was_repaired is False:
-            return self.revision_cost or Decimal('0')
-        return labor + parts
+    def taller_revenue(self) -> Decimal:
+        return PricingService.taller_revenue(self)
 
     @property
-    def saldo(self):
-        paid = sum(p.amount for p in self.payments.all())
-        if self.service_type == self.ServiceType.GARANTIA:
-            return self.final_price - paid
-        revision_deduction = (self.revision_cost or Decimal('0')) if self.revision_paid else Decimal('0')
-        return self.final_price - paid - revision_deduction
+    def saldo(self) -> Decimal:
+        return PricingService.saldo(self)
 
-    def get_valid_transitions(self):
-        if self.service_type == self.ServiceType.GARANTIA:
-            # EN_REVISION → solo REVISADO (el diagnóstico va primero a la marca)
-            if self.status == self.Status.EN_REVISION:
-                return ['REVISADO']
-            # REVISADO → solo EN_ESPERA_MARCA (gestión envía diagnóstico a la marca)
-            if self.status == self.Status.REVISADO:
-                return ['EN_ESPERA_MARCA']
-        transitions = list(self.VALID_TRANSITIONS.get(self.status, []))
-        if self.service_type == self.ServiceType.COBRO and 'EN_ESPERA_MARCA' in transitions:
-            transitions.remove('EN_ESPERA_MARCA')
-        return transitions
+    def get_valid_transitions(self) -> list:
+        return WorkOrderStateMachine.get_valid_transitions(self)
 
     def __str__(self):
         return f'OT {self.display_number} — {self.equipment}'

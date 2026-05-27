@@ -1,6 +1,22 @@
 from rest_framework import serializers
+from apps.clients.models import Client
+from apps.equipment.models import Equipment
 from apps.users.models import User
 from .models import WorkOrder, StatusHistory, SparePart, Payment, DiagnosticPhoto, BonusTier
+
+
+class ClientNestedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = ['id', 'name', 'document_type', 'document_number', 'phone', 'address']
+
+
+class EquipmentNestedSerializer(serializers.ModelSerializer):
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default=None)
+
+    class Meta:
+        model = Equipment
+        fields = ['id', 'brand_name', 'product_type', 'model', 'category']
 
 
 class BonusTierSerializer(serializers.ModelSerializer):
@@ -81,8 +97,8 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
     client_labor_cost        = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True, required=False)
     valid_transitions        = serializers.ListField(source='get_valid_transitions', read_only=True)
     status_history           = StatusHistorySerializer(many=True, read_only=True)
-    client_detail            = serializers.SerializerMethodField()
-    equipment_detail         = serializers.SerializerMethodField()
+    client_detail            = ClientNestedSerializer(source='client', read_only=True)
+    equipment_detail         = EquipmentNestedSerializer(source='equipment', read_only=True)
     warranty_brand_name      = serializers.CharField(source='warranty_brand.name', read_only=True, default=None)
     created_by_name          = serializers.SerializerMethodField()
     reviewing_technician_name = serializers.SerializerMethodField()
@@ -94,8 +110,6 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
     diagnostic_photos        = DiagnosticPhotoSerializer(many=True, read_only=True)
 
     def get_spare_parts_total(self, obj):
-        if hasattr(obj, 'spare_parts_total_ann'):
-            return obj.spare_parts_total_ann
         return sum(
             p.quantity * p.unit_price
             for p in obj.spare_parts.all()
@@ -103,28 +117,7 @@ class WorkOrderDetailSerializer(serializers.ModelSerializer):
         )
 
     def get_payments_total(self, obj):
-        if hasattr(obj, 'payments_total_ann'):
-            return obj.payments_total_ann
         return sum(p.amount for p in obj.payments.all())
-
-    def get_client_detail(self, obj):
-        c = obj.client
-        return {
-            'name': c.name,
-            'document_type': c.document_type,
-            'document_number': c.document_number,
-            'phone': c.phone,
-            'address': c.address,
-        }
-
-    def get_equipment_detail(self, obj):
-        e = obj.equipment
-        return {
-            'brand_name': e.brand.name if e.brand else None,
-            'product_type': e.product_type,
-            'model': e.model,
-            'category': e.category,
-        }
 
     def _user_name(self, user):
         if not user:

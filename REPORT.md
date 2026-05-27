@@ -42,7 +42,7 @@
 | A7 | `[x]` | Sin Error Boundaries — un error en un dialog puede crashear toda la app | (ausente) | Creado `ErrorBoundary.jsx` con opción de reintentar. Envuelve cada ruta de feature individualmente. |
 | A8 | `[x]` | Violaciones DRY severas: `CATEGORY_LABELS`, `formatCost()`, `formatDate()` y el patrón de extracción de errores de API duplicados en 4-5 archivos | `OrderDetail.jsx`, `OrdersPage.jsx`, `EquipmentPage.jsx`, `ClientForm.jsx`, `EquipmentForm.jsx`, `TransitionDialog.jsx` | Creados `lib/constants.js` (`CATEGORY_LABELS`, `CATEGORY_LABELS_SHORT`), `lib/format.js` (`formatDate`, `formatDateShort`, `formatCost`, `formatCostOrNull`) y `lib/apiError.js` (`getApiError`). Eliminados todos los duplicados en 8 archivos. |
 | A9 | `[x]` | Sin feedback de éxito en mutaciones — el usuario no sabe si la acción completó | múltiples | Instalado `sonner`. `<Toaster>` en `App.jsx`. `toast.success()` en `onSuccess` de todas las mutaciones críticas (OTs, repuestos, pagos, fotos, clientes, equipos, usuarios, bonos). |
-| A10 | `[ ]` | `fetch(photo.image_url)` sin manejo de error — si la imagen falla, el anotador se queda en spinner infinito | `PhotoAnnotator.jsx:21` | Agregar `.catch()` al fetch y mostrar un mensaje de error al usuario. |
+| A10 | `[x]` | `fetch(photo.image_url)` sin manejo de error — si la imagen falla, el anotador se queda en spinner infinito | `PhotoAnnotator.jsx:21` | `.catch()` en el fetch; comprueba `r.ok` antes del blob. Muestra mensaje de error con botón "Reintentar" (`retryKey` en dep array del efecto). |
 
 ---
 
@@ -52,11 +52,11 @@
 
 | ID | Estado | Problema | Archivo / Línea | Recomendación |
 |----|--------|----------|-----------------|---------------|
-| M1 | `[ ]` | Lógica de negocio (`final_price`, `saldo`, `get_valid_transitions`) directamente en el modelo | `orders/models.py:82-127` | Crear `orders/services.py` con `PricingService` y `WorkOrderStateMachine`. Dejar el modelo como contenedor de datos. |
-| M2 | `[ ]` | `get_spare_parts_total()` y `get_payments_total()` en el serializer duplican cálculos del modelo | `orders/serializers.py:89-97` | Eliminar estos métodos y usar los campos anotados (ver A1/A2) o las propiedades del modelo. |
-| M3 | `[ ]` | `get_client_detail()` y `get_equipment_detail()` construyen dicts manualmente en vez de usar serializers anidados | `orders/serializers.py:99-116` | Reemplazar por `ClientSerializer(source='client', read_only=True)` y `EquipmentSerializer(source='equipment', read_only=True)`. |
-| M4 | `[ ]` | `_fresh_order()` re-ejecuta el queryset completo después de cada mutación — doble consulta innecesaria | `orders/views.py:43-45` | Usar `work_order.refresh_from_db()` sobre la instancia ya modificada y serializar directamente. |
-| M5 | `[ ]` | Lógica de upload a Cloudinary repetida en `add_photo` y `upload_receipt` | `orders/views.py:139,162` | Extraer a `FileUploadService.upload_image(file, folder, quality, width)` en `services.py`. |
+| M1 | `[x]` | Lógica de negocio (`final_price`, `saldo`, `get_valid_transitions`) directamente en el modelo | `orders/models.py:82-127` | Creado `orders/services.py` con `PricingService` y `WorkOrderStateMachine`. El modelo queda como proxy delgado que delega a los servicios; API pública sin cambios. |
+| M2 | `[x]` | `get_spare_parts_total()` y `get_payments_total()` en el serializer duplican cálculos del modelo | `orders/serializers.py:89-97` | Eliminado el `hasattr` condicional — ambos métodos calculan directo desde el prefetch ya cargado. Eliminadas las anotaciones `spare_parts_total_ann` y `payments_total_ann` del queryset (ya no las usa nadie). |
+| M3 | `[x]` | `get_client_detail()` y `get_equipment_detail()` construyen dicts manualmente en vez de usar serializers anidados | `orders/serializers.py:99-116` | Creados `ClientNestedSerializer` y `EquipmentNestedSerializer` en `orders/serializers.py`. Reemplazan los métodos manuales; forma del output idéntica para no romper el frontend. |
+| M4 | `[x]` | `_fresh_order()` re-ejecuta el queryset completo después de cada mutación — doble consulta innecesaria | `orders/views.py:43-45` | Firma cambiada a `_fresh_order(work_order, request)`. Usa queryset limpio por `pk` sin filtros de lista. 10 callers actualizados para pasar la instancia ya disponible. |
+| M5 | `[x]` | Lógica de upload a Cloudinary repetida en `add_photo` y `upload_receipt` | `orders/views.py:139,162` | `FileUploadService.upload_image()` y `FileUploadService.destroy()` en `orders/services.py`. Las tres acciones de Cloudinary en views usan el servicio; `import cloudinary` eliminado de views. |
 | M6 | `[x]` | Sin `permission_classes` explícito en `ClientViewSet`, `BrandViewSet` y `EquipmentViewSet` — depende de herencia implícita de settings | `clients/views.py:6`, `equipment/views.py:6-17` | Resuelto junto con C2 — todos los viewsets tienen ahora `get_permissions()` explícito con granularidad por acción. |
 | M7 | `[x]` | Duplicado de A3 — resuelto junto con él. | — | — |
 

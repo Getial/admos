@@ -13,13 +13,19 @@ export default function PhotoAnnotator({ photo, open, onClose, onSave, saving })
   const [eraser, setEraser] = useState(false)
   const [bgUrl, setBgUrl] = useState(null)
   const [naturalSize, setNaturalSize] = useState(null)
+  const [fetchError, setFetchError] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
-    if (!open || !photo?.image_url) { setBgUrl(null); setNaturalSize(null); return }
+    if (!open || !photo?.image_url) { setBgUrl(null); setNaturalSize(null); setFetchError(false); return }
     let objectUrl
     let cancelled = false
+    setFetchError(false)
     fetch(photo.image_url)
-      .then((r) => r.blob())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.blob()
+      })
       .then((blob) => {
         if (cancelled) return
         objectUrl = URL.createObjectURL(blob)
@@ -30,11 +36,14 @@ export default function PhotoAnnotator({ photo, open, onClose, onSave, saving })
         img.src = objectUrl
         setBgUrl(objectUrl)
       })
+      .catch(() => {
+        if (!cancelled) setFetchError(true)
+      })
     return () => {
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [open, photo?.image_url])
+  }, [open, photo?.image_url, retryKey])
 
   function handleClose() {
     canvasRef.current?.clearCanvas()
@@ -168,6 +177,17 @@ export default function PhotoAnnotator({ photo, open, onClose, onSave, saving })
                   style={{ width: '100%', height: '100%', background: 'transparent' }}
                 />
               </div>
+            </div>
+          ) : fetchError ? (
+            <div className="flex flex-col items-center gap-3 text-center px-6">
+              <p className="text-sm text-white/80">No se pudo cargar la imagen.</p>
+              <button
+                type="button"
+                onClick={() => setRetryKey((k) => k + 1)}
+                className="px-3 py-1.5 rounded-md bg-white/10 hover:bg-white/20 text-white text-xs transition-colors"
+              >
+                Reintentar
+              </button>
             </div>
           ) : (
             <div className="flex items-center justify-center h-full">

@@ -1,8 +1,5 @@
-import cloudinary.uploader
-from decimal import Decimal
 from django.db import transaction
-from django.db.models import DecimalField, F, OuterRef, Q, Subquery, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -14,6 +11,7 @@ from rest_framework.response import Response
 from apps.users.models import User
 from .models import WorkOrder, StatusHistory, SparePart, Payment, DiagnosticPhoto, BonusTier
 from .permissions import IsTallerChief, IsRecepcionistaOrChief, IsTecnicoOrChief
+from .services import FileUploadService
 from .serializers import (
     WorkOrderListSerializer,
     WorkOrderDetailSerializer,
@@ -54,32 +52,12 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         return [IsTallerChief()]
 
     def get_queryset(self):
-        _money = DecimalField(max_digits=12, decimal_places=2)
-
-        spare_parts_subq = (
-            SparePart.objects
-            .filter(work_order=OuterRef('pk'), unit_price__isnull=False)
-            .values('work_order')
-            .annotate(total=Sum(F('quantity') * F('unit_price')))
-            .values('total')
-        )
-        payments_subq = (
-            Payment.objects
-            .filter(work_order=OuterRef('pk'))
-            .values('work_order')
-            .annotate(total=Sum('amount'))
-            .values('total')
-        )
-
         qs = WorkOrder.objects.select_related(
             'client', 'equipment__brand',
             'created_by', 'reviewing_technician', 'repair_technician',
             'warranty_brand',
         ).prefetch_related(
             'spare_parts', 'payments', 'diagnostic_photos', 'status_history__changed_by',
-        ).annotate(
-            spare_parts_total_ann=Coalesce(Subquery(spare_parts_subq, output_field=_money), Decimal('0'), output_field=_money),
-            payments_total_ann=Coalesce(Subquery(payments_subq, output_field=_money), Decimal('0'), output_field=_money),
         )
 
         search = self.request.query_params.get('search', '').strip()
@@ -107,9 +85,17 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             return WorkOrderListSerializer
         return WorkOrderDetailSerializer
 
-    def _fresh_order(self, pk, request):
-        work_order = self.get_queryset().get(pk=pk)
-        return WorkOrderDetailSerializer(work_order, context={'request': request}).data
+    def _fresh_order(self, work_order, request):
+        """Re-fetches the WO by PK with all relations needed by the detail serializer,
+        sin aplicar los filtros de lista (search, status, service_type)."""
+        wo = WorkOrder.objects.select_related(
+            'client', 'equipment__brand',
+            'created_by', 'reviewing_technician', 'repair_technician',
+            'warranty_brand',
+        ).prefetch_related(
+            'spare_parts', 'payments', 'diagnostic_photos', 'status_history__changed_by',
+        ).get(pk=work_order.pk)
+        return WorkOrderDetailSerializer(wo, context={'request': request}).data
 
     @action(detail=True, methods=['post'], url_path='transition')
     def transition(self, request, pk=None):
@@ -168,7 +154,7 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             work_order.status = new_status
             work_order.save()
 
-        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['patch'], url_path='update-core')
     def update_core(self, request, pk=None):
@@ -176,7 +162,7 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         serializer = CoreUpdateSerializer(work_order, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_200_OK)
 
     # --- Repuestos ---
 
@@ -186,7 +172,7 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         serializer = SparePartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(work_order=work_order)
-        return Response(self._fresh_order(pk, request), status=status.HTTP_201_CREATED)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['patch'], url_path='spare-parts/(?P<part_pk>[^/.]+)/update')
     def update_spare_part(self, request, pk=None, part_pk=None):
@@ -195,13 +181,13 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         serializer = SparePartSerializer(part, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['delete'], url_path='spare-parts/(?P<part_pk>[^/.]+)')
     def remove_spare_part(self, request, pk=None, part_pk=None):
         work_order = self.get_object()
         get_object_or_404(SparePart, pk=part_pk, work_order=work_order).delete()
-        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_200_OK)
 
     # --- Pagos ---
 
@@ -211,13 +197,13 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         serializer = PaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(work_order=work_order, created_by=request.user)
-        return Response(self._fresh_order(pk, request), status=status.HTTP_201_CREATED)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['delete'], url_path='payments/(?P<payment_pk>[^/.]+)')
     def remove_payment(self, request, pk=None, payment_pk=None):
         work_order = self.get_object()
         get_object_or_404(Payment, pk=payment_pk, work_order=work_order).delete()
-        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='payments/(?P<payment_pk>[^/.]+)/receipt',
             parser_classes=[MultiPartParser, FormParser])
@@ -229,21 +215,19 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
             return Response({'error': 'No se recibió ningún archivo.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
             if payment.receipt_public_id:
-                cloudinary.uploader.destroy(payment.receipt_public_id)
-            result = cloudinary.uploader.upload(
+                FileUploadService.destroy(payment.receipt_public_id)
+            result = FileUploadService.upload_image(
                 file,
                 folder=f'admos/receipts/{work_order.id}',
-                resource_type='image',
                 quality=85,
                 width=1600,
-                crop='limit',
             )
         except Exception:
             return Response({'error': 'No se pudo subir el archivo. Intenta de nuevo.'}, status=status.HTTP_502_BAD_GATEWAY)
-        payment.receipt_url = result['secure_url']
+        payment.receipt_url = result['url']
         payment.receipt_public_id = result['public_id']
         payment.save()
-        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_200_OK)
 
     # --- Fotos de diagnóstico ---
 
@@ -254,35 +238,33 @@ class WorkOrderViewSet(viewsets.ModelViewSet):
         if not file:
             return Response({'error': 'No se recibió ningún archivo.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            result = cloudinary.uploader.upload(
+            result = FileUploadService.upload_image(
                 file,
                 folder=f'admos/orders/{work_order.id}',
-                resource_type='image',
                 quality='auto',
                 width=1920,
-                crop='limit',
             )
         except Exception:
             return Response({'error': 'No se pudo subir la foto. Intenta de nuevo.'}, status=status.HTTP_502_BAD_GATEWAY)
         DiagnosticPhoto.objects.create(
             work_order=work_order,
-            image_url=result['secure_url'],
+            image_url=result['url'],
             public_id=result['public_id'],
             caption=request.data.get('caption', ''),
             uploaded_by=request.user,
         )
-        return Response(self._fresh_order(pk, request), status=status.HTTP_201_CREATED)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['delete'], url_path='photos/(?P<photo_pk>[^/.]+)')
     def remove_photo(self, request, pk=None, photo_pk=None):
         work_order = self.get_object()
         photo = get_object_or_404(DiagnosticPhoto, pk=photo_pk, work_order=work_order)
         try:
-            cloudinary.uploader.destroy(photo.public_id)
+            FileUploadService.destroy(photo.public_id)
         except Exception:
             return Response({'error': 'No se pudo eliminar la foto. Intenta de nuevo.'}, status=status.HTTP_502_BAD_GATEWAY)
         photo.delete()
-        return Response(self._fresh_order(pk, request), status=status.HTTP_200_OK)
+        return Response(self._fresh_order(work_order, request), status=status.HTTP_200_OK)
 
 
 class BonusTierViewSet(viewsets.ModelViewSet):
